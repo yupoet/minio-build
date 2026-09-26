@@ -52,3 +52,4 @@ docker rm -f minio-test
   与 Silo 同数据卷 schema 可互切），**产物需另行 `docker save` 归档**（本仓库管源码不管镜像）。
 - 跟踪 Silo：升级前核对 [silo.pgsty.com/compatibility/server](https://silo.pgsty.com/compatibility/server/)
   的版本门槛（hardening、TLS 默认、If-Match 语义等）。
+- 上游贡献跟踪（2026-09-26 提交，pending 评审）：[#228](https://github.com/pgsty/silo/pull/228) 单节点升级实证 docs、[#229](https://github.com/pgsty/silo/pull/229) checksum 错误信息按算法具名（fix #226）、[#230](https://github.com/pgsty/silo/pull/230) release 流水线 GHCR 同 digest 镜像（fix #224）；issue #197 经核实上游已修。评审意见回来后在此记录处理结果。
