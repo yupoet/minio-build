@@ -10,7 +10,7 @@ RUN go build -tags kqueue -trimpath \
     -o /out/minio .
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates curl
 COPY --from=build /out/minio /usr/bin/minio
 COPY dockerscripts/docker-entrypoint.sh /usr/bin/docker-entrypoint.sh
 EXPOSE 9000 9001
