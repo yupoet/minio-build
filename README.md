@@ -1,5 +1,11 @@
 # minio-build（MinIO 社区版自维护分支）
 
+> **定位更新（2026-09-26，操作者决策）**：生产对象存储已切换到 [`pgsty/silo`](https://github.com/pgsty/silo)
+> `RELEASE.2026-09-16T00-00-00Z`（AGPL 正牌 fork，活跃维护，恢复 Console，官方镜像分发）。
+> 本仓库转为 **Silo 跟踪点 + 自建 fallback**：生产日常跟 Silo release；Silo 断供或需要
+> 自定义补丁时，用本仓库流程从源码出镜像。操作者已明确不考虑 WeKnora 迁
+> `STORAGE_TYPE=local`，Silo 即长期底座。
+
 上游 [minio/minio](https://github.com/minio/minio) 社区版于 **2026-04-25 归档（只读）**，
 官方二进制分发渠道（`dl.min.io` 含 archive 与 latest 端点）随后全线 410，Docker Hub
 镜像 tag 删除、quay.io 拉取 401。本仓库是这个最后版本的**自维护分发点**：
@@ -42,5 +48,7 @@ docker rm -f minio-test
   （改 `golang:1.24-alpine` 为更新 tag 或直接重建即可）。
 - 重建后跑冒烟；生产环境（Aide-Captain 的 WeKnora 栈）切换方式见其仓库
   `docker/weknora/minio-selfbuild/README.md`（compose 改 image 引用，数据卷同版本线兼容）。
-- 长期方向是迁移 `STORAGE_TYPE=local` 消灭对象存储依赖（见 Aide-Captain runbook §15.4）；
-  在那之前本仓库是唯一分发点，**构建产物需另行 `docker save` 归档**（本仓库管源码不管镜像）。
+- 生产底座为 Silo（见上）；本仓库构建产物是回滚/备援目标（`aide-minio:RELEASE.2025-10-15T17-29-55Z`，
+  与 Silo 同数据卷 schema 可互切），**产物需另行 `docker save` 归档**（本仓库管源码不管镜像）。
+- 跟踪 Silo：升级前核对 [silo.pgsty.com/compatibility/server](https://silo.pgsty.com/compatibility/server/)
+  的版本门槛（hardening、TLS 默认、If-Match 语义等）。
