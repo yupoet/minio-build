@@ -1,160 +1,46 @@
-# MinIO Quickstart Guide
+# minio-build（MinIO 社区版自维护分支）
 
-[![Slack](https://slack.min.io/slack?type=svg)](https://slack.min.io) [![Docker Pulls](https://img.shields.io/docker/pulls/minio/minio.svg?maxAge=604800)](https://hub.docker.com/r/minio/minio/) [![license](https://img.shields.io/badge/license-AGPL%20V3-blue)](https://github.com/minio/minio/blob/master/LICENSE)
+上游 [minio/minio](https://github.com/minio/minio) 社区版于 **2026-04-25 归档（只读）**，
+官方二进制分发渠道（`dl.min.io` 含 archive 与 latest 端点）随后全线 410，Docker Hub
+镜像 tag 删除、quay.io 拉取 401。本仓库是这个最后版本的**自维护分发点**：
 
-[![MinIO](https://raw.githubusercontent.com/minio/minio/master/.github/logo.svg?sanitize=true)](https://min.io)
+- **基线**：`RELEASE.2025-10-15T17-29-55Z`（官方最后一个 release，含 STS 权限提升
+  CVE 修复），tag 已随仓库保留，历史完整可考古；上游原 README 见 `README.upstream.md`。
+- **增量**：`build/` 目录——可复现的 Docker 镜像构建（本仓库唯一长期维护的部分；
+  对上游源码的任何改动也会以提交形式出现在 main 分支，与 tag 可 diff）。
+- **许可证**：AGPLv3，随上游 LICENSE 保留；本仓库含完整源码，分发合规。
 
-MinIO is a high-performance, S3-compatible object storage solution released under the GNU AGPL v3.0 license.
-Designed for speed and scalability, it powers AI/ML, analytics, and data-intensive workloads with industry-leading performance.
+## 构建（约 3 分钟）
 
-- S3 API Compatible – Seamless integration with existing S3 tools
-- Built for AI & Analytics – Optimized for large-scale data pipelines
-- High Performance – Ideal for demanding storage workloads.
-
-This README provides instructions for building MinIO from source and deploying onto baremetal hardware.
-Use the [MinIO Documentation](https://github.com/minio/docs) project to build and host a local copy of the documentation.
-
-## MinIO is Open Source Software
-
-We designed MinIO as Open Source software for the Open Source software community. We encourage the community to remix, redesign, and reshare MinIO under the terms of the AGPLv3 license.
-
-All usage of MinIO in your application stack requires validation against AGPLv3 obligations, which include but are not limited to the release of modified code to the community from which you have benefited. Any commercial/proprietary usage of the AGPLv3 software, including repackaging or reselling services/features, is done at your own risk.
-
-The AGPLv3 provides no obligation by any party to support, maintain, or warranty the original or any modified work.
-All support is provided on a best-effort basis through Github and our [Slack](https//slack.min.io) channel, and any member of the community is welcome to contribute and assist others in their usage of the software.
-
-MinIO [AIStor](https://www.min.io/product/aistor) includes enterprise-grade support and licensing for workloads which require commercial or proprietary usage and production-level SLA/SLO-backed support. For more information, [reach out for a quote](https://min.io/pricing).
-
-## Source-Only Distribution
-
-**Important:** The MinIO community edition is now distributed as source code only. We will no longer provide pre-compiled binary releases for the community version.
-
-### Installing Latest MinIO Community Edition
-
-To use MinIO community edition, you have two options:
-
-1. **Install from source** using `go install github.com/minio/minio@latest` (recommended)
-2. **Build a Docker image** from the provided Dockerfile
-
-See the sections below for detailed instructions on each method.
-
-### Legacy Binary Releases
-
-Historical pre-compiled binary releases remain available for reference but are no longer maintained:
-- GitHub Releases: https://github.com/minio/minio/releases
-- Direct downloads: https://dl.min.io/server/minio/release/
-
-**These legacy binaries will not receive updates.** We strongly recommend using source builds for access to the latest features, bug fixes, and security updates.
-
-## Install from Source
-
-Use the following commands to compile and run a standalone MinIO server from source.
-If you do not have a working Golang environment, please follow [How to install Golang](https://golang.org/doc/install). Minimum version required is [go1.24](https://golang.org/dl/#stable)
-
-```sh
-go install github.com/minio/minio@latest
+```bash
+git clone https://github.com/yupoet/minio-build.git && cd minio-build
+docker build -f build/Dockerfile -t aide-minio:RELEASE.2025-10-15T17-29-55Z .
 ```
 
-You can alternatively run `go build` and use the `GOOS` and `GOARCH` environment variables to control the OS and architecture target.
-For example:
+- 构建层 `golang:1.24-alpine`（实测解析到 go1.24.13，新于官方 09-07 版所用工具链，
+  附带更新的 Go stdlib 安全修复）；运行层 `alpine:3.20`（官方 UBI registry 部分网络不可达）。
+- `GOPROXY` 默认 `goproxy.cn,direct`（proxy.golang.org 在部分网络不稳，可按需覆盖）。
+- 版本注入对齐官方 Makefile 的 ldflags 口径（`cmd.Version`/`cmd.ReleaseTag`）。
 
-```
-env GOOS=linux GOARCh=arm64 go build
-```
+## 冒烟（换新版本/改代码后必做）
 
-Start MinIO by running `minio server PATH` where `PATH` is any empty folder on your local filesystem.
-
-The MinIO deployment starts using default root credentials `minioadmin:minioadmin`.
-You can test the deployment using the MinIO Console, an embedded web-based object browser built into MinIO Server.
-Point a web browser running on the host machine to <http://127.0.0.1:9000> and log in with the root credentials.
-You can use the Browser to create buckets, upload objects, and browse the contents of the MinIO server.
-
-You can also connect using any S3-compatible tool, such as the MinIO Client `mc` commandline tool:
-
-```sh
-mc alias set local http://localhost:9000 minioadmin minioadmin
-mc admin info local
+```bash
+docker run --rm aide-minio:RELEASE.2025-10-15T17-29-55Z --version   # 版本号应一致
+docker run -d --name minio-test -p 127.0.0.1:9900:9000 \
+  -e MINIO_ROOT_USER=smoketest -e MINIO_ROOT_PASSWORD=smoketest123 \
+  aide-minio:RELEASE.2025-10-15T17-29-55Z server /data
+curl -sf http://127.0.0.1:9900/minio/health/live -o /dev/null        # 200
+curl -sf http://127.0.0.1:9900/minio/health/ready -o /dev/null       # 200
+docker rm -f minio-test
 ```
 
-See [Test using MinIO Client `mc`](#test-using-minio-client-mc) for more information on using the `mc` commandline tool.
-For application developers, see <https://docs.min.io/community/minio-object-store/developers/minio-drivers.html> to view MinIO SDKs for supported languages.
+2026-09-26 首次构建实测全过（版本注入正确、双健康端点 200、镜像 42MB）。
 
-> [!NOTE]
-> Production environments using compiled-from-source MinIO binaries do so at their own risk.
-> The AGPLv3 license provides no warranties nor liabilites for any such usage.
+## 维护策略
 
-## Build Docker Image
-
-You can use the `docker build .` command to build a Docker image on your local host machine.
-You must first [build MinIO](#install-from-source) and ensure the `minio` binary exists in the project root.
-
-The following command builds the Docker image using the default `Dockerfile` in the root project directory with the repository and image tag `myminio:minio`
-
-```sh
-docker build -t myminio:minio .
-```
-
-Use `docker image ls` to confirm the image exists in your local repository.
-You can run the server using standard Docker invocation:
-
-```sh
-docker run -p 9000:9000 -p 9001:9001 myminio:minio server /tmp/minio --console-address :9001
-```
-
-Complete documentation for building Docker containers, managing custom images, or loading images into orchestration platforms is out of scope for this documentation.
-You can modify the `Dockerfile` and `dockerscripts/socker-entrypoint.sh` as-needed to reflect your specific image requirements.
-
-See the [MinIO Container](https://docs.min.io/community/minio-object-store/operations/deployments/baremetal-deploy-minio-as-a-container.html#deploy-minio-container) documentation for more guidance on running MinIO within a Container image.
-
-## Install using Helm Charts
-
-There are two paths for installing MinIO onto Kubernetes infrastructure:
-
-- Use the [MinIO Operator](https://github.com/minio/operator)
-- Use the community-maintained [Helm charts](https://github.com/minio/minio/tree/master/helm/minio)
-
-See the [MinIO Documentation](https://docs.min.io/community/minio-object-store/operations/deployments/kubernetes.html) for guidance on deploying using the Operator.
-The Community Helm chart has instructions in the folder-level README.
-
-## Test MinIO Connectivity
-
-### Test using MinIO Console
-
-MinIO Server comes with an embedded web based object browser.
-Point your web browser to <http://127.0.0.1:9000> to ensure your server has started successfully.
-
-> [!NOTE]
-> MinIO runs console on random port by default, if you wish to choose a specific port use `--console-address` to pick a specific interface and port.
-
-### Test using MinIO Client `mc`
-
-`mc` provides a modern alternative to UNIX commands like ls, cat, cp, mirror, diff etc. It supports filesystems and Amazon S3 compatible cloud storage services.
-
-The following commands set a local alias, validate the server information, create a bucket, copy data to that bucket, and list the contents of the bucket.
-
-```sh
-mc alias set local http://localhost:9000 minioadmin minioadmin
-mc admin info
-mc mb data
-mc cp ~/Downloads/mydata data/
-mc ls data/
-```
-
-Follow the MinIO Client [Quickstart Guide](https://docs.min.io/community/minio-object-store/reference/minio-mc.html#quickstart) for further instructions.
-
-## Explore Further
-
-- [The MinIO documentation website](https://docs.min.io/community/minio-object-store/index.html)
-- [MinIO Erasure Code Overview](https://docs.min.io/community/minio-object-store/operations/concepts/erasure-coding.html)
-- [Use `mc` with MinIO Server](https://docs.min.io/community/minio-object-store/reference/minio-mc.html)
-- [Use `minio-go` SDK with MinIO Server](https://docs.min.io/community/minio-object-store/developers/go/minio-go.html)
-
-## Contribute to MinIO Project
-
-Please follow MinIO [Contributor's Guide](https://github.com/minio/minio/blob/master/CONTRIBUTING.md) for guidance on making new contributions to the repository.
-
-## License
-
-- MinIO source is licensed under the [GNU AGPLv3](https://github.com/minio/minio/blob/master/LICENSE).
-- MinIO [documentation](https://github.com/minio/minio/tree/master/docs) is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
-- [License Compliance](https://github.com/minio/minio/blob/master/COMPLIANCE.md)
+- 上游不会再有官方修复；Go 依赖链 CVE 的实际缓解是**定期用新 Go 工具链重建**
+  （改 `golang:1.24-alpine` 为更新 tag 或直接重建即可）。
+- 重建后跑冒烟；生产环境（Aide-Captain 的 WeKnora 栈）切换方式见其仓库
+  `docker/weknora/minio-selfbuild/README.md`（compose 改 image 引用，数据卷同版本线兼容）。
+- 长期方向是迁移 `STORAGE_TYPE=local` 消灭对象存储依赖（见 Aide-Captain runbook §15.4）；
+  在那之前本仓库是唯一分发点，**构建产物需另行 `docker save` 归档**（本仓库管源码不管镜像）。
